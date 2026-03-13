@@ -1,0 +1,30 @@
+# Environment / secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+.venv/
+*.egg-info/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Firmware uploads
+/tmp/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

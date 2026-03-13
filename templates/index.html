@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>RepeaterWatch</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/css/xterm.min.css" />
+    <script>
+        (function() {
+            var t = localStorage.getItem('repeaterwatch-theme') ||
+                    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+    <style>body { opacity: 0; } body.ready { opacity: 1; transition: opacity .15s; }</style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header id="header">
+        <div class="header-wordmark">
+            <h1>RepeaterWatch</h1>
+        </div>
+        {% if auth_enabled %}
+        <a href="/logout" class="logout-btn">Logout</a>
+        {% endif %}
+    </header>
+
+    <!-- Tab Bar -->
+    <nav id="tab-bar">
+        <button class="tab-btn active" data-tab="meshcore">MeshCore</button>
+        <button class="tab-btn" data-tab="raspberry-pi">Raspberry Pi</button>
+        <button class="tab-btn" data-tab="sensors">Sensors</button>
+        <button class="tab-btn" data-tab="tools">Tools</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- ══════════════════════════════════════════
+         Tab: MeshCore
+    ══════════════════════════════════════════ -->
+    <div id="tab-meshcore" class="tab-panel active">
+
+        <!-- Device Info Bar -->
+        <div class="info-bar">
+            <span class="status-dot" id="status-dot" title="Collector status"></span>
+            <span class="info-bar-item"><strong id="mc-radio-name">--</strong></span>
+            <span class="info-bar-sep"></span>
+            <span class="info-bar-item" id="mc-firmware">--</span>
+            <span class="info-bar-sep"></span>
+            <span class="info-bar-item" id="mc-board">--</span>
+            <span class="info-bar-item" id="mc-radio-config">--</span>
+        </div>
+
+        <!-- Time Range Selector -->
+        <nav id="time-controls">
+            <button class="time-btn" data-hours="1">1h</button>
+            <button class="time-btn active" data-hours="6">6h</button>
+            <button class="time-btn" data-hours="24">24h</button>
+            <button class="time-btn" data-hours="168">7d</button>
+            <button class="time-btn" data-hours="720">30d</button>
+            <span id="last-update">--</span>
+        </nav>
+
+        <!-- Status Cards -->
+        <div class="status-grid">
+            <div class="status-card">
+                <span class="status-label">Uptime</span>
+                <span class="status-value" id="mc-uptime-val">--</span>
+                <span class="status-sub" id="mc-uptime-sub">Radio uptime</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">TX Packets</span>
+                <span class="status-value" id="mc-tx-val">--</span>
+                <span class="status-sub" id="mc-tx-sub">direct / flood</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">RX Packets</span>
+                <span class="status-value" id="mc-rx-val">--</span>
+                <span class="status-sub" id="mc-rx-sub">direct / flood</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Errors</span>
+                <span class="status-value" id="mc-err-val">--</span>
+                <span class="status-sub" id="mc-err-sub">RX errors</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Sent/Min</span>
+                <span class="status-value" id="mc-txrate-val">--</span>
+                <span class="status-sub" id="mc-txrate-sub">avg over period</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Recv/Min</span>
+                <span class="status-value" id="mc-rxrate-val">--</span>
+                <span class="status-sub" id="mc-rxrate-sub">avg over period</span>
+            </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-card power-ina-chart">
+                <h3>Solar / Repeater Voltage</h3>
+                <div id="chart-voltage" class="chart-container"></div>
+            </div>
+            <div class="chart-card power-ina-chart">
+                <h3>Solar / Repeater Current</h3>
+                <div id="chart-current" class="chart-container"></div>
+            </div>
+            <div class="chart-card power-ina-chart">
+                <h3>Solar / Repeater Power</h3>
+                <div id="chart-power" class="chart-container"></div>
+            </div>
+            <div class="chart-card power-onboard-chart" style="display:none;">
+                <h3>Battery Voltage</h3>
+                <div id="chart-battery" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>RF Signal</h3>
+                <div id="chart-radio" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Airtime Utilization</h3>
+                <div id="chart-airtime" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Packets (Direct / Flood)</h3>
+                <div id="chart-packets" class="chart-container"></div>
+            </div>
+        </div>
+
+        <!-- Neighbor Map + Details -->
+        <div class="neighbor-section">
+            <div class="full-width-card neighbor-map-card" id="map-card">
+                <div class="card-header">
+                    <h3>Neighbor Map</h3>
+                    <button id="map-fullscreen" class="icon-btn" title="Fullscreen map">&#x26F6;</button>
+                </div>
+                <div id="neighbor-map"></div>
+            </div>
+            <div class="full-width-card neighbor-list-card">
+                <h3>Neighbors</h3>
+                <div class="table-scroll">
+                    <table id="neighbors-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Role</th>
+                                <th>Last SNR</th>
+                                <th>Last RSSI</th>
+                                <th>Avg SNR</th>
+                                <th>Avg RSSI</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="neighbors-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Packets Table -->
+        <div class="full-width-card">
+            <h3>Recent Packets</h3>
+            <div class="table-scroll">
+                <table id="packets-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Dir</th>
+                            <th>Type</th>
+                            <th>Route</th>
+                            <th>SNR</th>
+                            <th>RSSI</th>
+                            <th>Score</th>
+                            <th>Packet</th>
+                        </tr>
+                    </thead>
+                    <tbody id="packets-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /tab-meshcore -->
+
+    <!-- ══════════════════════════════════════════
+         Tab: Raspberry Pi
+    ══════════════════════════════════════════ -->
+    <div id="tab-raspberry-pi" class="tab-panel">
+
+        <!-- Pi Info Bar -->
+        <div class="info-bar">
+            <span class="info-bar-item"><strong id="pi-hostname">--</strong></span>
+            <span class="info-bar-sep"></span>
+            <span class="info-bar-item" id="pi-os-version">--</span>
+            <span class="info-bar-sep"></span>
+            <span class="info-bar-item" id="pi-model">--</span>
+        </div>
+
+        <!-- Pi Time Range Selector -->
+        <nav class="pi-time-controls">
+            <button class="time-btn pi-time-btn" data-hours="1">1h</button>
+            <button class="time-btn pi-time-btn active" data-hours="6">6h</button>
+            <button class="time-btn pi-time-btn" data-hours="24">24h</button>
+            <button class="time-btn pi-time-btn" data-hours="168">7d</button>
+            <button class="time-btn pi-time-btn" data-hours="720">30d</button>
+            <span id="pi-last-update">--</span>
+        </nav>
+
+        <!-- Status Cards -->
+        <div class="status-grid">
+            <div class="status-card">
+                <span class="status-label">CPU</span>
+                <span class="status-value" id="pi-cpu-val">--%</span>
+                <span class="status-sub" id="pi-cpu-sub">-- cores</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Memory</span>
+                <span class="status-value" id="pi-mem-val">--%</span>
+                <span class="status-sub" id="pi-mem-sub">-- / -- MB</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Temperature</span>
+                <span class="status-value" id="pi-temp-val">--</span>
+                <span class="status-sub" id="pi-temp-sub">CPU thermal</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Disk</span>
+                <span class="status-value" id="pi-disk-val">--%</span>
+                <span class="status-sub" id="pi-disk-sub">-- / -- GB</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Load Average</span>
+                <span class="status-value" id="pi-load-val">--</span>
+                <span class="status-sub" id="pi-load-sub">1m / 5m / 15m</span>
+            </div>
+            <div class="status-card">
+                <span class="status-label">Uptime</span>
+                <span class="status-value" id="pi-uptime-val">--</span>
+                <span class="status-sub" id="pi-uptime-sub">-- processes</span>
+            </div>
+        </div>
+
+        <!-- Pi Charts Grid -->
+        <div class="charts-grid">
+            <div class="chart-card">
+                <h3>CPU Usage / Load</h3>
+                <div id="chart-pi-cpu" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Memory Usage</h3>
+                <div id="chart-pi-memory" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>CPU Temperature</h3>
+                <div id="chart-pi-temp" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Disk Usage</h3>
+                <div id="chart-pi-disk" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Disk I/O</h3>
+                <div id="chart-pi-diskio" class="chart-container"></div>
+            </div>
+            <div class="chart-card">
+                <h3>Network I/O</h3>
+                <div id="chart-pi-netio" class="chart-container"></div>
+            </div>
+        </div>
+
+        <!-- Top Processes Table -->
+        <div class="full-width-card">
+            <h3>Top Processes (by Memory)</h3>
+            <div class="table-scroll">
+                <table id="pi-processes-table">
+                    <thead>
+                        <tr>
+                            <th>PID</th>
+                            <th>Name</th>
+                            <th>CPU %</th>
+                            <th>Memory %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pi-processes-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /tab-raspberry-pi -->
+
+    <!-- ══════════════════════════════════════════
+         Tab: Sensors — dynamic, shows only enabled sensors
+    ══════════════════════════════════════════ -->
+    <div id="tab-sensors" class="tab-panel">
+
+        <!-- Config / manage bar -->
+        <div class="sensor-config-bar">
+            <span id="sensor-poll-status" class="sensor-poll-badge sensor-poll-off">Polling Off</span>
+            <span id="sensor-active-count" class="sensor-active-count">No sensors enabled</span>
+            <button id="sensor-manage-btn" class="sensor-manage-btn">&#x2B; Manage Sensors</button>
+        </div>
+
+        <!-- Empty state — shown when no sensors enabled -->
+        <div id="sensor-empty-state" class="sensor-empty-state" style="display:none;">
+            <div class="sensor-empty-icon">&#x1F4E1;</div>
+            <h3>No Sensors Enabled</h3>
+            <p>Click <strong>Manage Sensors</strong> to enable connected hardware.</p>
+            <button class="sensor-manage-btn-lg" onclick="document.getElementById('sensor-manage-btn').click()">
+                &#x2B; Add a Sensor
+            </button>
+        </div>
+
+        <!-- Time range — hidden until at least one sensor enabled -->
+        <nav class="sensor-time-controls" id="sensor-time-nav" style="display:none;">
+            <button class="time-btn sensor-time-btn" data-hours="1">1h</button>
+            <button class="time-btn sensor-time-btn active" data-hours="6">6h</button>
+            <button class="time-btn sensor-time-btn" data-hours="24">24h</button>
+            <button class="time-btn sensor-time-btn" data-hours="168">7d</button>
+            <button class="time-btn sensor-time-btn" data-hours="720">30d</button>
+            <span id="sensor-last-update">--</span>
+        </nav>
+
+        <!-- INA3221 -->
+        <div id="sensor-section-ina3221" class="sensor-section" style="display:none;">
+            <div class="sensor-section-header">
+                <span class="sensor-section-icon">&#x26A1;</span>
+                <h2>INA3221 — Power Monitor</h2>
+                <span class="sensor-chip-badge">3-Channel</span>
+            </div>
+            <div class="status-grid sensor-status-grid-3">
+                <div class="status-card">
+                    <span class="status-label">Battery V</span>
+                    <span class="status-value" id="sensor-batt-v">--</span>
+                    <span class="status-sub" id="sensor-batt-v-sub">Ch0 voltage</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Battery mA</span>
+                    <span class="status-value" id="sensor-batt-i">--</span>
+                    <span class="status-sub" id="sensor-batt-i-sub">Ch0 current</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Load V</span>
+                    <span class="status-value" id="sensor-load-v">--</span>
+                    <span class="status-sub" id="sensor-load-v-sub">Ch1 voltage</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Load mA</span>
+                    <span class="status-value" id="sensor-load-i">--</span>
+                    <span class="status-sub" id="sensor-load-i-sub">Ch1 current</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Input V</span>
+                    <span class="status-value" id="sensor-solar-v">--</span>
+                    <span class="status-sub" id="sensor-solar-v-sub">Ch2 voltage</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Input mA</span>
+                    <span class="status-value" id="sensor-solar-i">--</span>
+                    <span class="status-sub" id="sensor-solar-i-sub">Ch2 current</span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3>Battery Voltage (Ch0)</h3><div id="chart-sensor-batt-volt" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Battery Current (Ch0)</h3><div id="chart-sensor-batt-curr" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Load Voltage (Ch1)</h3><div id="chart-sensor-load-volt" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Load Current (Ch1)</h3><div id="chart-sensor-load-curr" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Input Voltage (Ch2)</h3><div id="chart-sensor-solar-volt" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Input Current (Ch2)</h3><div id="chart-sensor-solar-curr" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Power (W)</h3><div id="chart-sensor-power" class="chart-container"></div></div>
+            </div>
+        </div>
+
+        <!-- BME280 -->
+        <div id="sensor-section-bme280" class="sensor-section" style="display:none;">
+            <div class="sensor-section-header">
+                <span class="sensor-section-icon">&#x1F321;</span>
+                <h2>BME280 — Environment</h2>
+                <span class="sensor-chip-badge">Temp / Humidity / Pressure</span>
+            </div>
+            <div class="status-grid sensor-status-grid-3">
+                <div class="status-card">
+                    <span class="status-label">Temp</span>
+                    <span class="status-value" id="sensor-temp-val">--</span>
+                    <span class="status-sub" id="sensor-temp-sub">BME280</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Humidity</span>
+                    <span class="status-value" id="sensor-hum-val">--</span>
+                    <span class="status-sub" id="sensor-hum-sub">BME280</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Pressure</span>
+                    <span class="status-value" id="sensor-press-val">--</span>
+                    <span class="status-sub" id="sensor-press-sub">BME280</span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3>Temperature</h3><div id="chart-sensor-temp" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Humidity</h3><div id="chart-sensor-humidity" class="chart-container"></div></div>
+                <div class="chart-card"><h3>Barometric Pressure</h3><div id="chart-sensor-pressure" class="chart-container"></div></div>
+            </div>
+        </div>
+
+        <!-- LIS2DW12 -->
+        <div id="sensor-section-lis2dw12" class="sensor-section" style="display:none;">
+            <div class="sensor-section-header">
+                <span class="sensor-section-icon">&#x1F4CF;</span>
+                <h2>LIS2DW12 — Accelerometer</h2>
+                <span class="sensor-chip-badge">Vibration / Tilt</span>
+            </div>
+            <div class="status-grid sensor-status-grid-3">
+                <div class="status-card">
+                    <span class="status-label">Vibration</span>
+                    <span class="status-value" id="sensor-vib-val">--</span>
+                    <span class="status-sub" id="sensor-vib-sub">LIS2DW12</span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3>Vibration Magnitude</h3><div id="chart-sensor-vibration" class="chart-container"></div></div>
+            </div>
+        </div>
+
+        <!-- BQ24074 -->
+        <div id="sensor-section-bq24074" class="sensor-section" style="display:none;">
+            <div class="sensor-section-header">
+                <span class="sensor-section-icon">&#x1F50B;</span>
+                <h2>BQ24074 — Solar Charger</h2>
+                <span class="sensor-chip-badge">Charging Status</span>
+            </div>
+            <div class="status-grid sensor-status-grid-3">
+                <div class="status-card">
+                    <span class="status-label">Charging</span>
+                    <span class="status-value" id="sensor-chg-val">--</span>
+                    <span class="status-sub" id="sensor-chg-sub">BQ24074</span>
+                </div>
+                <div class="status-card">
+                    <span class="status-label">Power Good</span>
+                    <span class="status-value" id="sensor-pgood-val">--</span>
+                    <span class="status-sub" id="sensor-pgood-sub">BQ24074</span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card"><h3>Charger Status</h3><div id="chart-sensor-charger" class="chart-container"></div></div>
+            </div>
+        </div>
+
+        <!-- AS3935 -->
+        <div id="sensor-section-as3935" class="sensor-section" style="display:none;">
+            <div class="sensor-section-header">
+                <span class="sensor-section-icon">&#x26A1;</span>
+                <h2>AS3935 — Lightning Detector</h2>
+                <span class="sensor-chip-badge">Strike Detection</span>
+            </div>
+            <div class="full-width-card" style="margin-top:0;">
+                <div class="card-header">
+                    <h3>Lightning Events</h3>
+                    <span id="lightning-alert" class="lightning-alert" style="display:none;">LIGHTNING DETECTED</span>
+                </div>
+                <div class="table-scroll">
+                    <table id="lightning-table">
+                        <thead><tr><th>Time</th><th>Type</th><th>Distance (km)</th><th>Energy</th></tr></thead>
+                        <tbody id="lightning-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /tab-sensors -->
+
+    <!-- ══════════════════════════════════════════
+         Manage Sensors Modal
+    ══════════════════════════════════════════ -->
+    <div id="sensor-modal-overlay" class="sensor-modal-overlay" style="display:none;">
+        <div class="sensor-modal">
+            <div class="sensor-modal-header">
+                <h2>Manage Sensors</h2>
+                <button id="sensor-modal-close" class="sensor-modal-close">&#x2715;</button>
+            </div>
+            <div class="sensor-modal-body">
+                <p class="sensor-modal-note">
+                    Toggle sensors on or off. Changes are written to <code>.env</code> immediately.
+                    A <strong>service restart</strong> is required for polling to take effect.
+                </p>
+                <div class="sensor-toggle-list">
+                    <div class="sensor-toggle-row">
+                        <div class="sensor-toggle-info">
+                            <span class="sensor-toggle-icon">&#x26A1;</span>
+                            <div>
+                                <div class="sensor-toggle-name">INA3221</div>
+                                <div class="sensor-toggle-desc">3-channel power monitor — voltage, current, power</div>
+                            </div>
+                        </div>
+                        <label class="sensor-toggle-switch" for="sensor-toggle-ina3221">
+                            <input type="checkbox" id="sensor-toggle-ina3221" data-sensor="ina3221">
+                            <span class="sensor-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="sensor-toggle-row">
+                        <div class="sensor-toggle-info">
+                            <span class="sensor-toggle-icon">&#x1F321;</span>
+                            <div>
+                                <div class="sensor-toggle-name">BME280</div>
+                                <div class="sensor-toggle-desc">Temperature, humidity, and barometric pressure</div>
+                            </div>
+                        </div>
+                        <label class="sensor-toggle-switch" for="sensor-toggle-bme280">
+                            <input type="checkbox" id="sensor-toggle-bme280" data-sensor="bme280">
+                            <span class="sensor-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="sensor-toggle-row">
+                        <div class="sensor-toggle-info">
+                            <span class="sensor-toggle-icon">&#x1F4CF;</span>
+                            <div>
+                                <div class="sensor-toggle-name">LIS2DW12</div>
+                                <div class="sensor-toggle-desc">Accelerometer — vibration and tilt detection</div>
+                            </div>
+                        </div>
+                        <label class="sensor-toggle-switch" for="sensor-toggle-lis2dw12">
+                            <input type="checkbox" id="sensor-toggle-lis2dw12" data-sensor="lis2dw12">
+                            <span class="sensor-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="sensor-toggle-row">
+                        <div class="sensor-toggle-info">
+                            <span class="sensor-toggle-icon">&#x26A1;</span>
+                            <div>
+                                <div class="sensor-toggle-name">AS3935</div>
+                                <div class="sensor-toggle-desc">Lightning detector — strike distance and energy</div>
+                            </div>
+                        </div>
+                        <label class="sensor-toggle-switch" for="sensor-toggle-as3935">
+                            <input type="checkbox" id="sensor-toggle-as3935" data-sensor="as3935">
+                            <span class="sensor-toggle-track"></span>
+                        </label>
+                    </div>
+                    <div class="sensor-toggle-row">
+                        <div class="sensor-toggle-info">
+                            <span class="sensor-toggle-icon">&#x1F50B;</span>
+                            <div>
+                                <div class="sensor-toggle-name">BQ24074</div>
+                                <div class="sensor-toggle-desc">Solar charger IC — charging status and power good signal</div>
+                            </div>
+                        </div>
+                        <label class="sensor-toggle-switch" for="sensor-toggle-bq24074">
+                            <input type="checkbox" id="sensor-toggle-bq24074" data-sensor="bq24074">
+                            <span class="sensor-toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-modal-footer">
+                <span id="sensor-save-status" class="sensor-save-status"></span>
+                <button id="sensor-save-btn" class="save-btn">Save Changes</button>
+                <button id="sensor-restart-btn" class="sensor-restart-btn" style="display:none;">
+                    Restart Service to Apply
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════
+         Tab: Tools
+    ══════════════════════════════════════════ -->
+    <div id="tab-tools" class="tab-panel">
+        <div class="tools-grid">
+
+            <!-- Flash Firmware -->
+            <div class="tool-card tool-card-wide">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F4E6;</span>
+                    <h3>Flash Firmware</h3>
+                </div>
+                <p class="tool-desc">Upload a firmware .zip to flash the repeater. Services will restart automatically.</p>
+                <div class="firmware-inputs">
+                    <label class="firmware-file-label">
+                        <span id="fw-file-name">Choose firmware .zip</span>
+                        <input type="file" id="fw-file" accept=".zip" />
+                    </label>
+                    <input type="text" id="fw-sha256" placeholder="Expected SHA256 hash" spellcheck="false" />
+                    <button id="fw-flash-btn" class="flash-btn" disabled>Flash</button>
+                </div>
+            </div>
+
+            <!-- Services -->
+            <div class="tool-card tool-card-wide">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x2699;</span>
+                    <h3>Services</h3>
+                </div>
+                <div class="service-list" id="service-list">
+                    <div class="service-row" data-service="mctomqtt">
+                        <span class="service-dot"></span>
+                        <span class="service-name">mctomqtt</span>
+                        <span class="service-uptime">--</span>
+                        <div class="service-btns">
+                            <button class="svc-btn start-btn"   data-service="mctomqtt"      data-action="start">Start</button>
+                            <button class="svc-btn stop-btn"    data-service="mctomqtt"      data-action="stop">Stop</button>
+                            <button class="svc-btn restart-btn" data-service="mctomqtt"      data-action="restart">Restart</button>
+                        </div>
+                    </div>
+                    <div class="service-row" data-service="SerialMux">
+                        <span class="service-dot"></span>
+                        <span class="service-name">SerialMux</span>
+                        <span class="service-uptime">--</span>
+                        <div class="service-btns">
+                            <button class="svc-btn start-btn"   data-service="SerialMux"     data-action="start">Start</button>
+                            <button class="svc-btn stop-btn"    data-service="SerialMux"     data-action="stop">Stop</button>
+                            <button class="svc-btn restart-btn" data-service="SerialMux"     data-action="restart">Restart</button>
+                        </div>
+                    </div>
+                    <div class="service-row" data-service="RepeaterWatch">
+                        <span class="service-dot"></span>
+                        <span class="service-name">RepeaterWatch</span>
+                        <span class="service-uptime">--</span>
+                        <div class="service-btns">
+                            <button class="svc-btn restart-btn" data-service="RepeaterWatch" data-action="restart">Restart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Radio Control -->
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F504;</span>
+                    <h3>Radio Control</h3>
+                </div>
+                <p class="tool-desc">Hardware reset the radio via GPIO, or enter bootloader mode for firmware updates.</p>
+                <div class="card-actions">
+                    <button id="reboot-radio-btn"      class="reboot-btn">Reset Radio</button>
+                    <button id="bootloader-radio-btn"  class="reboot-btn bootloader-btn">Bootloader Mode</button>
+                </div>
+            </div>
+
+            <!-- Radio USB -->
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F50C;</span>
+                    <h3>Radio USB</h3>
+                </div>
+                <p class="tool-desc">Toggle the USB power relay to the radio.</p>
+                <div class="card-actions">
+                    <button id="usb-relay-btn" class="reboot-btn">Enable Radio USB</button>
+                    <span id="usb-relay-status" class="settings-save-status"></span>
+                </div>
+                <div id="usb-device-list" class="usb-device-list" style="display:none;"></div>
+            </div>
+
+            <!-- BQ24074 Charger -->
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F50B;</span>
+                    <h3>BQ24074 Charger</h3>
+                </div>
+                <p class="tool-desc">Solar charger status and control.</p>
+                <div class="bq24074-indicators">
+                    <div class="bq24074-indicator">
+                        <span class="service-dot" id="bq24074-chg-dot"></span>
+                        <span>Charging</span>
+                    </div>
+                    <div class="bq24074-indicator">
+                        <span class="service-dot" id="bq24074-pgood-dot"></span>
+                        <span>Power Good</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button id="bq24074-toggle-btn" class="reboot-btn">Disable Charging</button>
+                    <span id="bq24074-status-msg" class="settings-save-status"></span>
+                </div>
+            </div>
+
+            <!-- Reboot Pi -->
+            <div class="tool-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F504;</span>
+                    <h3>Reboot Pi</h3>
+                </div>
+                <p class="tool-desc">Reboot the Raspberry Pi. All services will restart automatically.</p>
+                <div class="card-actions">
+                    <button id="reboot-pi-btn" class="reboot-btn">Reboot Pi</button>
+                </div>
+            </div>
+
+            <!-- Terminal -->
+            <div class="tool-card tool-card-terminal">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F4BB;</span>
+                    <h3>Terminal</h3>
+                </div>
+                <p class="tool-desc">Open a live terminal session to the Pi console or the radio serial port.</p>
+                <div class="terminal-controls">
+                    <div class="terminal-mode-selector">
+                        <button class="terminal-mode-btn active" data-mode="pty">Pi Console</button>
+                        <button class="terminal-mode-btn" data-mode="serial">Serial ttyV2</button>
+                    </div>
+                    <button id="terminal-connect-btn" class="terminal-connect-btn">Connect</button>
+                </div>
+                <div id="terminal-container" class="terminal-container" style="display:none;">
+                    <div id="xterm-terminal"></div>
+                </div>
+                <div id="terminal-status" class="terminal-status"></div>
+            </div>
+
+        </div>
+    </div><!-- /tab-tools -->
+
+    <!-- ══════════════════════════════════════════
+         Tab: Settings
+    ══════════════════════════════════════════ -->
+    <div id="tab-settings" class="tab-panel">
+        <div class="settings-grid">
+
+            <div class="tool-card settings-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x2699;</span>
+                    <h3>Power Monitoring</h3>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label">Source</label>
+                    <div class="radio-group">
+                        <button class="terminal-mode-btn active" data-setting="power_source" data-value="ina3221">INA3221</button>
+                        <button class="terminal-mode-btn"        data-setting="power_source" data-value="onboard">Onboard</button>
+                    </div>
+                </div>
+                <div class="settings-group" id="ina-channel-settings">
+                    <label class="settings-label">INA3221 Channel Mapping</label>
+                    <div class="settings-row">
+                        <label for="ina-solar-ch">Solar channel</label>
+                        <select id="ina-solar-ch" class="settings-select">
+                            <option value="ch0">ch1 (device)</option>
+                            <option value="ch1" selected>ch2 (device)</option>
+                            <option value="ch2">ch3 (device)</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="ina-repeater-ch">Repeater channel</label>
+                        <select id="ina-repeater-ch" class="settings-select">
+                            <option value="ch0" selected>ch1 (device)</option>
+                            <option value="ch1">ch2 (device)</option>
+                            <option value="ch2">ch3 (device)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button id="settings-save-btn" class="save-btn">Save</button>
+                    <span id="settings-save-status" class="settings-save-status"></span>
+                </div>
+            </div>
+
+            <div class="tool-card settings-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x2699;</span>
+                    <h3>Firmware</h3>
+                </div>
+                <div class="settings-group">
+                    <label class="settings-label" for="flash-serial-port">Flash Serial Port</label>
+                    <input type="text" id="flash-serial-port" class="settings-input" spellcheck="false"
+                           placeholder="/dev/serial/by-id/..." />
+                </div>
+                <div class="card-actions">
+                    <button id="fw-settings-save-btn" class="save-btn">Save</button>
+                    <span id="fw-settings-save-status" class="settings-save-status"></span>
+                </div>
+            </div>
+
+            <div class="tool-card settings-card">
+                <div class="tool-card-header">
+                    <span class="tool-icon">&#x1F5D1;</span>
+                    <h3>Database</h3>
+                </div>
+                <p class="tool-desc">Delete all collected data and start fresh. Settings are preserved.</p>
+                <div class="card-actions">
+                    <button id="db-reset-btn" class="danger-btn">Delete All Data</button>
+                    <span id="db-reset-status" class="settings-save-status"></span>
+                </div>
+            </div>
+
+        </div>
+    </div><!-- /tab-settings -->
+
+    <!-- Footer -->
+    <footer id="footer">
+        <span>Queue: <strong id="footer-queue">--</strong></span>
+        <span>Errors: <strong id="footer-errors">--</strong></span>
+        <span>DB: <strong id="footer-db-size">--</strong></span>
+        <span>Polls: <strong id="footer-polls">--</strong></span>
+        <button id="theme-toggle" title="Toggle dark/light mode">Toggle Theme</button>
+    </footer>
+
+    <!-- Firmware Flash Modal -->
+    <div id="fw-modal-overlay" class="fw-modal-overlay" style="display:none;">
+        <div class="fw-modal">
+            <div class="fw-modal-header">
+                <span class="fw-modal-title">Firmware Update</span>
+                <span class="fw-modal-status" id="fw-modal-status"></span>
+            </div>
+            <pre class="fw-modal-log" id="fw-modal-log"></pre>
+            <div class="fw-modal-footer" id="fw-modal-footer" style="display:none;">
+                <button id="fw-modal-close" class="fw-modal-close-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Libraries from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0/lib/addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0/lib/addon-web-links.min.js"></script>
+
+    <!-- App JS -->
+    <script src="/static/js/charts/radio.js"></script>
+    <script src="/static/js/charts/power.js"></script>
+    <script src="/static/js/charts/packets.js"></script>
+    <script src="/static/js/charts/pi_health.js"></script>
+    <script src="/static/js/charts/sensors.js"></script>
+    <script src="/static/js/map.js"></script>
+    <script src="/static/js/sensors_manage.js"></script>
+    <script src="/static/js/dashboard.js"></script>
+
+</body>
+</html>
