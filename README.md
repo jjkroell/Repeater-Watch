@@ -30,7 +30,7 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-Then set a password:
+The install script should ask for a password, if not please run the below command to set or change your password:
 
 ```bash
 sudo -u meshcoremon /opt/RepeaterWatch/venv/bin/python3 /opt/RepeaterWatch/setup_auth.py
