@@ -55,6 +55,7 @@ def device_info():
         "lat": lat,
         "lon": lon,
         "uptime_secs": uptime,
+        "hardware": os.environ.get("MESHCORE_HARDWARE", ""),
     })
 
 
@@ -101,13 +102,13 @@ def stats_power():
         "timestamps": [r["ts"] for r in rows],
         "ch0_voltage": [r["ch0_voltage"] for r in rows],
         "ch0_current": [r["ch0_current"] for r in rows],
-        "ch0_power": [r["ch0_power"] for r in rows],
+        "ch0_power":   [r["ch0_power"] for r in rows],
         "ch1_voltage": [r["ch1_voltage"] for r in rows],
         "ch1_current": [r["ch1_current"] for r in rows],
-        "ch1_power": [r["ch1_power"] for r in rows],
+        "ch1_power":   [r["ch1_power"] for r in rows],
         "ch2_voltage": [r["ch2_voltage"] for r in rows],
         "ch2_current": [r["ch2_current"] for r in rows],
-        "ch2_power": [r["ch2_power"] for r in rows],
+        "ch2_power":   [r["ch2_power"] for r in rows],
     })
 
 
@@ -130,53 +131,60 @@ def packets_activity():
     if not rows:
         rows = models.query_packets_activity_from_stats(h)
         return jsonify({
-            "timestamps": [r["bucket"] for r in rows],
-            "tx_direct": [r["tx_direct"] for r in rows],
-            "tx_flood": [r["tx_flood"] for r in rows],
-            "rx_direct": [r["rx_direct"] for r in rows],
-            "rx_flood": [r["rx_flood"] for r in rows],
+            "timestamps":  [r["bucket"] for r in rows],
+            "tx_direct":   [r["tx_direct"] for r in rows],
+            "tx_flood":    [r["tx_flood"] for r in rows],
+            "rx_direct":   [r["rx_direct"] for r in rows],
+            "rx_flood":    [r["rx_flood"] for r in rows],
             "dups_direct": [0] * len(rows),
-            "dups_flood": [0] * len(rows),
-            "rx_errors": [r["rx_errors"] for r in rows],
-            "total": [r["total"] for r in rows],
+            "dups_flood":  [0] * len(rows),
+            "rx_errors":   [r["rx_errors"] for r in rows],
+            "total":       [r["total"] for r in rows],
         })
 
     dups = models.query_packet_dups(h)
-    dup_by_ts = {}
-    for d in dups:
-        dup_by_ts[d["ts"]] = d
-    dup_timestamps = sorted(dup_by_ts.keys())
+    dup_timestamps = sorted(d["ts"] for d in dups)
+    dup_by_ts = {d["ts"]: d for d in dups}
 
-    def find_dups(bucket_ts):
-        dd = fd = re = 0
-        for dts in dup_timestamps:
-            if dts <= bucket_ts:
-                dd = dup_by_ts[dts]["dups_direct"]
-                fd = dup_by_ts[dts]["dups_flood"]
-                re = dup_by_ts[dts]["rx_errors"]
-            else:
-                break
-        return dd, fd, re
-
+    # Build bucket boundaries and assign dup/error deltas to the correct bucket.
+    bucket_secs = bucket * 60
     dups_direct_list = []
     dups_flood_list = []
     rx_errors_list = []
+    prev_bucket_ts = rows[0]["bucket"] - bucket_secs if rows else 0
     for r in rows:
-        dd, fd, re = find_dups(r["bucket"])
+        curr_bucket_ts = r["bucket"]
+        dd = fd = re = 0
+        for dts in dup_timestamps:
+            if prev_bucket_ts < dts <= curr_bucket_ts:
+                dd += dup_by_ts[dts]["dups_direct"]
+                fd += dup_by_ts[dts]["dups_flood"]
+                re += dup_by_ts[dts]["rx_errors"]
         dups_direct_list.append(dd)
         dups_flood_list.append(fd)
         rx_errors_list.append(re)
+        prev_bucket_ts = curr_bucket_ts
+
+    # Include any trailing errors beyond the last closed bucket boundary.
+    last_bucket_ts = rows[-1]["bucket"] if rows else 0
+    trailing_errors = sum(
+        dup_by_ts[dts]["rx_errors"]
+        for dts in dup_timestamps
+        if dts > last_bucket_ts
+    )
+    if trailing_errors and rx_errors_list:
+        rx_errors_list[-1] += trailing_errors
 
     return jsonify({
-        "timestamps": [r["bucket"] for r in rows],
-        "tx_direct": [r["tx_direct"] for r in rows],
-        "tx_flood": [r["tx_flood"] for r in rows],
-        "rx_direct": [r["rx_direct"] for r in rows],
-        "rx_flood": [r["rx_flood"] for r in rows],
+        "timestamps":  [r["bucket"] for r in rows],
+        "tx_direct":   [r["tx_direct"] for r in rows],
+        "tx_flood":    [r["tx_flood"] for r in rows],
+        "rx_direct":   [r["rx_direct"] for r in rows],
+        "rx_flood":    [r["rx_flood"] for r in rows],
         "dups_direct": dups_direct_list,
-        "dups_flood": dups_flood_list,
-        "rx_errors": rx_errors_list,
-        "total": [r["total"] for r in rows],
+        "dups_flood":  dups_flood_list,
+        "rx_errors":   rx_errors_list,
+        "total":       [r["total"] for r in rows],
     })
 
 
@@ -216,22 +224,22 @@ def status():
 def stats_pi_health():
     rows = models.query_stats_pi_health(_hours())
     return jsonify({
-        "timestamps":     [r["ts"] for r in rows],
-        "cpu_percent":    [r["cpu_percent"] for r in rows],
-        "load_1":         [r["load_1"] for r in rows],
-        "load_5":         [r["load_5"] for r in rows],
-        "load_15":        [r["load_15"] for r in rows],
-        "mem_used_mb":    [r["mem_used_mb"] for r in rows],
-        "mem_total_mb":   [r["mem_total_mb"] for r in rows],
-        "mem_percent":    [r["mem_percent"] for r in rows],
-        "swap_used_mb":   [r["swap_used_mb"] for r in rows],
-        "swap_total_mb":  [r["swap_total_mb"] for r in rows],
-        "cpu_temp":       [r["cpu_temp"] for r in rows],
-        "disk_used_gb":   [r["disk_used_gb"] for r in rows],
-        "disk_total_gb":  [r["disk_total_gb"] for r in rows],
-        "disk_percent":   [r["disk_percent"] for r in rows],
-        "uptime_secs":    [r["uptime_secs"] for r in rows],
-        "process_count":  [r["process_count"] for r in rows],
+        "timestamps":    [r["ts"] for r in rows],
+        "cpu_percent":   [r["cpu_percent"] for r in rows],
+        "load_1":        [r["load_1"] for r in rows],
+        "load_5":        [r["load_5"] for r in rows],
+        "load_15":       [r["load_15"] for r in rows],
+        "mem_used_mb":   [r["mem_used_mb"] for r in rows],
+        "mem_total_mb":  [r["mem_total_mb"] for r in rows],
+        "mem_percent":   [r["mem_percent"] for r in rows],
+        "swap_used_mb":  [r["swap_used_mb"] for r in rows],
+        "swap_total_mb": [r["swap_total_mb"] for r in rows],
+        "cpu_temp":      [r["cpu_temp"] for r in rows],
+        "disk_used_gb":  [r["disk_used_gb"] for r in rows],
+        "disk_total_gb": [r["disk_total_gb"] for r in rows],
+        "disk_percent":  [r["disk_percent"] for r in rows],
+        "uptime_secs":   [r["uptime_secs"] for r in rows],
+        "process_count": [r["process_count"] for r in rows],
     })
 
 

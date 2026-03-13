@@ -128,12 +128,14 @@ header {
 }
 
 .status-dot {
+    display: inline-block;
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: var(--red);
     flex-shrink: 0;
     transition: background 0.3s;
+    vertical-align: middle;
 }
 
 .status-dot.connected {
@@ -242,9 +244,10 @@ header {
 .info-bar-item { white-space: nowrap; }
 
 /* ── Time Controls ─────────────────────────────────────────── */
-#time-controls,
+.device-info-card + #time-controls, #time-controls,
 .pi-time-controls,
 .sensor-time-controls {
+    margin-top: 12px;
     background: var(--bg-card);
     border-bottom: 1px solid var(--border);
     padding: 8px var(--pad);
@@ -372,13 +375,105 @@ header {
     height: 220px;
 }
 
+/* ── Device Info Card ──────────────────────────────────────── */
+.device-info-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin: 12px var(--pad);
+}
+
+.device-info-sections {
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+}
+
+.device-info-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.device-info-divider {
+    width: 1px;
+    background: var(--border);
+    margin: 0 20px;
+    flex-shrink: 0;
+}
+
+.device-info-card h3 {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.device-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 24px;
+}
+
+.device-info-section:last-child .device-info-grid {
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.device-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.device-info-label {
+    font-size: 0.64rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.device-info-value {
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 800px) {
+    .device-info-sections {
+        flex-direction: column;
+        gap: 14px;
+    }
+    .device-info-divider {
+        width: auto;
+        height: 1px;
+        margin: 0;
+    }
+    .device-info-grid,
+    .device-info-section:last-child .device-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 400px) {
+    .device-info-grid,
+    .device-info-section:last-child .device-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── Full Width Card ───────────────────────────────────────── */
 .full-width-card {
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 14px;
-    margin: 0 var(--pad) 12px;
+    margin: 12px var(--pad);
 }
 
 .full-width-card h3 {
@@ -524,10 +619,20 @@ td.dir-rx { color: var(--green); }
 /* ── Tools Grid ────────────────────────────────────────────── */
 .tools-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(7, 1fr);
     gap: 16px;
     padding: 16px var(--pad);
 }
+
+/* Row 1: Flash (span 3) + Services (span 4) */
+.tools-grid .tool-card-wide:nth-child(1) { grid-column: span 3; }
+.tools-grid .tool-card-wide:nth-child(2) { grid-column: span 4; }
+
+/* Row 2: Radio Ctrl (span 2) + Radio USB (span 2) + BQ24074 (span 2) + Reboot Pi (span 1) */
+.tool-card-radio-ctrl  { grid-column: span 2; }
+.tool-card-radio-usb   { grid-column: span 2; }
+.tool-card-bq24074     { grid-column: span 2; }
+.tool-card-reboot-pi   { grid-column: span 1; }
 
 .tool-card {
     background: var(--bg-card);
@@ -575,7 +680,6 @@ td.dir-rx { color: var(--green); }
     font-style: italic;
 }
 
-.tool-card-wide     { grid-column: span 2; }
 .tool-card-terminal { grid-column: 1 / -1; }
 
 /* ── Firmware Inputs ───────────────────────────────────────── */
@@ -1137,11 +1241,16 @@ footer strong { color: var(--text); }
 /* ── Large tablets / small desktops (≤1024px) ─────────────── */
 @media (max-width: 1024px) {
     .tools-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(4, 1fr);
     }
 
-    .tool-card-wide     { grid-column: span 2; }
-    .tool-card-terminal { grid-column: 1 / -1; }
+    .tools-grid .tool-card-wide:nth-child(1) { grid-column: span 2; }
+    .tools-grid .tool-card-wide:nth-child(2) { grid-column: span 2; }
+    .tool-card-radio-ctrl  { grid-column: span 2; }
+    .tool-card-radio-usb   { grid-column: span 2; }
+    .tool-card-bq24074     { grid-column: span 2; }
+    .tool-card-reboot-pi   { grid-column: span 2; }
+    .tool-card-terminal    { grid-column: 1 / -1; }
 
     .sensor-status-grid {
         grid-template-columns: repeat(3, 1fr);
@@ -1154,74 +1263,64 @@ footer strong { color: var(--text); }
         --pad: var(--pad-sm);
     }
 
-    /* Header */
     header { padding: 0 var(--pad-sm); }
     .header-info h1 { font-size: 0.85rem; }
 
-    /* Tab bar — scrollable, shrink padding */
     #tab-bar { padding: 0 var(--pad-sm); }
     .tab-btn { padding: 0 12px; font-size: 0.72rem; }
 
-    /* Info bar */
     .info-bar { padding: 0 var(--pad-sm); font-size: 0.74rem; }
 
-    /* Time controls */
-    #time-controls,
+    .device-info-card + #time-controls, #time-controls,
     .pi-time-controls,
-    .sensor-time-controls { padding: 6px var(--pad-sm); }
+    .sensor-time-controls { padding: 6px var(--pad-sm); margin-top: 12px; }
 
-    /* Status grid — 2-col on tablets */
     .status-grid            { grid-template-columns: repeat(2, 1fr); padding: 10px var(--pad-sm) 0; gap: 8px; }
     .sensor-status-grid     { grid-template-columns: repeat(2, 1fr); }
 
-    /* Charts — single column */
     .charts-grid {
         grid-template-columns: 1fr;
         padding: 10px var(--pad-sm);
         gap: 8px;
     }
 
-    /* Full width cards */
     .full-width-card { margin: 0 var(--pad-sm) 10px; }
 
-    /* Neighbor section — stack */
     .neighbor-section {
         grid-template-columns: 1fr;
         padding: 0 var(--pad-sm) 10px;
         gap: 8px;
     }
 
-    /* Map height */
     #neighbor-map { height: 260px; }
 
-    /* Tools — single column */
     .tools-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
         padding: 10px var(--pad-sm);
         gap: 10px;
     }
-    .tool-card-wide     { grid-column: span 1; }
-    .tool-card-terminal { grid-column: span 1; }
+    .tools-grid .tool-card-wide:nth-child(1),
+    .tools-grid .tool-card-wide:nth-child(2),
+    .tool-card-radio-ctrl,
+    .tool-card-radio-usb,
+    .tool-card-bq24074,
+    .tool-card-reboot-pi   { grid-column: span 1; }
+    .tool-card-terminal    { grid-column: 1 / -1; }
 
-    /* Settings */
     .settings-grid {
         grid-template-columns: 1fr;
         padding: 10px var(--pad-sm);
         gap: 10px;
     }
 
-    /* Footer */
     footer { padding: 8px var(--pad-sm); gap: 10px; font-size: 0.72rem; }
 
-    /* Service rows — wrap buttons */
     .service-row { flex-wrap: wrap; }
     .service-uptime { margin-right: 0; }
     .service-btns { width: 100%; justify-content: flex-start; }
 
-    /* Terminal */
     #xterm-terminal { height: 300px; }
 
-    /* Chart height */
     .chart-container { height: 180px; }
 }
 
@@ -1233,33 +1332,36 @@ footer strong { color: var(--text); }
 
     .tab-btn { padding: 0 10px; font-size: 0.7rem; letter-spacing: 0.04em; }
 
-    /* Status grid — still 2 col but tighter */
     .status-grid    { gap: 6px; }
     .status-card    { padding: 10px 12px; }
     .status-value   { font-size: 1.2rem; }
 
-    /* Charts */
     .chart-container { height: 160px; }
 
-    /* Firmware inputs stack vertically */
     .firmware-inputs { flex-direction: column; align-items: stretch; }
     .firmware-file-label { max-width: 100%; }
     #fw-sha256 { min-width: 0; width: 100%; }
 
-    /* BQ24074 */
     .bq24074-indicators { flex-direction: column; }
 
-    /* Card actions wrap */
     .card-actions { gap: 8px; }
 
-    /* Service buttons — icon-only hints */
     .svc-btn { padding: 4px 8px; font-size: 0.7rem; }
 
-    /* Footer — hide less important items on tiny screens */
+    .tools-grid {
+        grid-template-columns: 1fr;
+    }
+    .tools-grid .tool-card-wide:nth-child(1),
+    .tools-grid .tool-card-wide:nth-child(2),
+    .tool-card-radio-ctrl,
+    .tool-card-radio-usb,
+    .tool-card-bq24074,
+    .tool-card-reboot-pi,
+    .tool-card-terminal { grid-column: span 1; }
+
     footer #footer-db-size,
     footer #footer-polls { display: none; }
 
-    /* Modal */
     .fw-modal { max-height: 90vh; }
     .fw-modal-log { font-size: 0.7rem; }
 }
@@ -1320,7 +1422,6 @@ footer strong { color: var(--text); }
 }
 .sensor-manage-btn:hover { background: var(--accent-glow); }
 
-/* Empty State */
 .sensor-empty-state {
     display: flex;
     flex-direction: column;
@@ -1349,7 +1450,6 @@ footer strong { color: var(--text); }
 }
 .sensor-manage-btn-lg:hover { filter: brightness(0.9); }
 
-/* Sensor Section */
 .sensor-section { padding-bottom: 6px; }
 
 .sensor-section + .sensor-section {
@@ -1384,7 +1484,6 @@ footer strong { color: var(--text); }
 
 .sensor-status-grid-3 { grid-template-columns: repeat(3, 1fr) !important; }
 
-/* Manage Sensors Modal */
 .sensor-modal-overlay {
     position: fixed;
     inset: 0;
@@ -1466,7 +1565,6 @@ footer strong { color: var(--text); }
 .sensor-toggle-name { font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--text); }
 .sensor-toggle-desc { font-size: 0.76rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
 
-/* Toggle switch */
 .sensor-toggle-switch {
     position: relative;
     display: inline-block;

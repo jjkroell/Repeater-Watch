@@ -45,15 +45,34 @@
     ══════════════════════════════════════════ -->
     <div id="tab-meshcore" class="tab-panel active">
 
-        <!-- Device Info Bar -->
-        <div class="info-bar">
-            <span class="status-dot" id="status-dot" title="Collector status"></span>
-            <span class="info-bar-item"><strong id="mc-radio-name">--</strong></span>
-            <span class="info-bar-sep"></span>
-            <span class="info-bar-item" id="mc-firmware">--</span>
-            <span class="info-bar-sep"></span>
-            <span class="info-bar-item" id="mc-board">--</span>
-            <span class="info-bar-item" id="mc-radio-config">--</span>
+        <!-- Device Info Card -->
+        <div class="device-info-card">
+            <div class="device-info-grid">
+                <div class="device-info-item">
+                    <span class="device-info-label">Node Name</span>
+                    <span class="device-info-value"><span class="status-dot" id="status-dot" title="Collector status"></span> <span id="di-name">--</span></span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">Firmware</span>
+                    <span class="device-info-value" id="di-firmware">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">Hardware</span>
+                    <span class="device-info-value" id="di-hardware">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">Frequency</span>
+                    <span class="device-info-value" id="di-freq">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">Bandwidth</span>
+                    <span class="device-info-value" id="di-bw">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">SF / CR</span>
+                    <span class="device-info-value"><span id="di-sf">--</span> / <span id="di-cr">--</span></span>
+                </div>
+            </div>
         </div>
 
         <!-- Time Range Selector -->
@@ -191,13 +210,22 @@
     ══════════════════════════════════════════ -->
     <div id="tab-raspberry-pi" class="tab-panel">
 
-        <!-- Pi Info Bar -->
-        <div class="info-bar">
-            <span class="info-bar-item"><strong id="pi-hostname">--</strong></span>
-            <span class="info-bar-sep"></span>
-            <span class="info-bar-item" id="pi-os-version">--</span>
-            <span class="info-bar-sep"></span>
-            <span class="info-bar-item" id="pi-model">--</span>
+        <!-- Pi Info Card -->
+        <div class="device-info-card">
+            <div class="device-info-grid">
+                <div class="device-info-item">
+                    <span class="device-info-label">Hostname</span>
+                    <span class="device-info-value" id="pi-hostname">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">OS</span>
+                    <span class="device-info-value" id="pi-os-version">--</span>
+                </div>
+                <div class="device-info-item">
+                    <span class="device-info-label">Architecture</span>
+                    <span class="device-info-value" id="pi-model">--</span>
+                </div>
+            </div>
         </div>
 
         <!-- Pi Time Range Selector -->
@@ -563,7 +591,6 @@
         </div>
     </div>
 
-
     <!-- ══════════════════════════════════════════
          Tab: Tools
     ══════════════════════════════════════════ -->
@@ -626,7 +653,7 @@
             </div>
 
             <!-- Radio Control -->
-            <div class="tool-card">
+            <div class="tool-card tool-card-radio-ctrl">
                 <div class="tool-card-header">
                     <span class="tool-icon">&#x1F504;</span>
                     <h3>Radio Control</h3>
@@ -639,7 +666,7 @@
             </div>
 
             <!-- Radio USB -->
-            <div class="tool-card">
+            <div class="tool-card tool-card-radio-usb">
                 <div class="tool-card-header">
                     <span class="tool-icon">&#x1F50C;</span>
                     <h3>Radio USB</h3>
@@ -653,7 +680,7 @@
             </div>
 
             <!-- BQ24074 Charger -->
-            <div class="tool-card">
+            <div class="tool-card tool-card-bq24074">
                 <div class="tool-card-header">
                     <span class="tool-icon">&#x1F50B;</span>
                     <h3>BQ24074 Charger</h3>
@@ -676,7 +703,7 @@
             </div>
 
             <!-- Reboot Pi -->
-            <div class="tool-card">
+            <div class="tool-card tool-card-reboot-pi">
                 <div class="tool-card-header">
                     <span class="tool-icon">&#x1F504;</span>
                     <h3>Reboot Pi</h3>

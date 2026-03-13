@@ -43,6 +43,8 @@ for svc in RepeaterWatch mctomqtt SerialMux; do
         systemctl disable "$svc"
     fi
     rm -f "/etc/systemd/system/$svc.service"
+    # Remove any drop-in overrides
+    rm -rf "/etc/systemd/system/$svc.service.d"
     success "Removed $svc service"
 done
 systemctl daemon-reload
