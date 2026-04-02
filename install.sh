@@ -38,10 +38,10 @@ echo ""
 
 # ── Gather inputs upfront ────────────────────────────────────────────────────
 header "Configuration"
-echo -e "  Before installing, we need a couple of details.\n"
+echo -e "  Before installing, we need a few details.\n"
 
 # --- Serial port (auto-detect) ---
-echo -e "  ${BOLD}Step 1/2 — Physical serial port${NC}\n"
+echo -e "  ${BOLD}Step 1/3 — Physical serial port${NC}\n"
 
 mapfile -t USB_DEVICES < <(ls /dev/serial/by-id/ 2>/dev/null || true)
 
@@ -77,7 +77,17 @@ fi
 echo ""
 
 # --- RepeaterWatch web port ---
-echo -e "  ${BOLD}Step 2/2 — RepeaterWatch web port${NC}\n"
+echo -e "  ${BOLD}Step 2/3 — Hardware name${NC}\n"
+info "Name or description of this node's radio hardware."
+info "Examples: Heltec T114, RAK 4631, Ikoka Stick 30dB"
+echo ""
+echo -en "${CYAN}?${NC}  Hardware name: "; read -r HARDWARE_NAME </dev/tty
+if [[ -z "$HARDWARE_NAME" ]]; then HARDWARE_NAME="Unknown"; fi
+ok "Hardware: $HARDWARE_NAME"
+echo ""
+
+# --- RepeaterWatch web port ---
+echo -e "  ${BOLD}Step 3/3 — RepeaterWatch web port${NC}\n"
 info "Port the dashboard will listen on (default: 5000)."
 echo -en "${CYAN}?${NC}  Web port [5000]: "; read -r RW_PORT_RAW </dev/tty
 RW_PORT="${RW_PORT_RAW:-5000}"
@@ -254,6 +264,7 @@ MESHCORE_FIRMWARE_UPLOAD_DIR=/tmp/meshcore-fw
 # Terminal
 MESHCORE_TERMINAL_SERIAL_PORT=/dev/ttyV2
 MESHCORE_TERMINAL_SERIAL_BAUD=115200
+MESHCORE_HARDWARE_NAME=$HARDWARE_NAME
 EOF
     chown meshcoremon:meshcoremon "$RW_DIR/.env"
     chmod 640 "$RW_DIR/.env"
