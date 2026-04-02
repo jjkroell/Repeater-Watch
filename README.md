@@ -2,7 +2,7 @@
 
 A web dashboard for monitoring a MeshCore repeater node running on a Raspberry Pi. Displays radio stats, sensor data (environmental, power, lightning), packet history, and provides a firmware flash interface and serial terminal.
 
-**Full stack:** RepeaterWatch works alongside [SerialMux](https://github.com/MrAlders0n/SerialMux) (serial port multiplexer) and [mctomqtt](https://github.com/Cisien/meshcoretomqtt) (MeshCore → MQTT bridge). The installer sets up all three.
+**Full stack:** [RepeaterWatch](https://github.com/MrAlders0n/RepeaterWatch) works alongside [SerialMux](https://github.com/MrAlders0n/SerialMux) (serial port multiplexer) and [mctomqtt](https://github.com/Cisien/meshcoretomqtt) (MeshCore → MQTT bridge). The installer sets up all three.
 
 ## Quick Install
 
