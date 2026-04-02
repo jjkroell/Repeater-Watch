@@ -105,7 +105,7 @@ sleep 3
 header "Step 1/4 — System Dependencies"
 
 apt-get update -qq
-apt-get install -y -qq git python3 python3-venv python3-pip python3-lgpio curl
+apt-get install -y -qq git python3 python3-venv python3-pip python3-lgpio python3-serial curl
 ok "System packages installed."
 
 # ── Step 2: SerialMux ────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ info "Configuring serial port: $SERIAL_PORT"
 sed -i "s|REAL_PORT = '.*'|REAL_PORT = '$SERIAL_PORT'|" "$SERIALMUX_DIR/SerialMux.py"
 ok "REAL_PORT configured."
 
-pip3 install -q pyserial
+# pyserial installed via apt (python3-serial) above — no pip needed
 ok "pyserial installed."
 
 cat > /etc/systemd/system/SerialMux.service <<EOF
@@ -250,6 +250,7 @@ RW_DIR="/opt/RepeaterWatch"
 
 if ! id meshcoremon &>/dev/null; then
     useradd -r -s /usr/sbin/nologin -d "$RW_DIR" meshcoremon
+    usermod -aG dialout meshcoremon
     ok "Service user 'meshcoremon' created."
 else
     ok "Service user 'meshcoremon' already exists."
