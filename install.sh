@@ -15,6 +15,9 @@ err()      { echo -e "${RED}✗${NC}  $1"; }
 info()     { echo -e "${CYAN}ℹ${NC}  $1"; }
 
 # ── Root check ───────────────────────────────────────────────────────────────
+# Reattach stdin to terminal — required when run via curl | bash
+exec < /dev/tty
+
 if [[ $EUID -ne 0 ]]; then
     err "Please run as root: sudo bash install.sh"
     exit 1
