@@ -35,7 +35,7 @@ TERMINAL_SERIAL_BAUD = int(os.environ.get("MESHCORE_TERMINAL_SERIAL_BAUD", "1152
 RADIO_RESET_GPIO_PIN = int(os.environ.get("MESHCORE_RADIO_RESET_GPIO", "4"))
 USB_RELAY_GPIO_PIN = int(os.environ.get("MESHCORE_USB_RELAY_GPIO", "17"))
 
-SENSOR_POLL_ENABLED = os.environ.get("MESHCORE_SENSOR_POLL", "1") != "0"
+SENSOR_POLL_ENABLED = os.environ.get("MESHCORE_SENSOR_POLL", "0") != "0"
 AS3935_IRQ_GPIO = int(os.environ.get("MESHCORE_AS3935_IRQ_GPIO", "18"))
 AS3935_AFE_MODE = os.environ.get("MESHCORE_AS3935_AFE_MODE", "indoor")  # "indoor" or "outdoor"
 AS3935_NOISE_FLOOR = int(os.environ.get("MESHCORE_AS3935_NOISE_FLOOR", "3"))  # 0-7
