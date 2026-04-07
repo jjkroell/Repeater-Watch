@@ -24,6 +24,8 @@ The installer will ask for:
 4. **Trusted proxy IP** — enter `127.0.0.1` if using a cloudflared tunnel, leave blank for direct LAN access
 5. **Login password** — bcrypt-hashed, set interactively
 
+> **Note:** Items 4 and 5 can also be configured (or changed) after installation via the **Settings → Login Protection** and **Settings → Authentication** cards in the web dashboard.
+
 Then it installs and starts everything automatically. The dashboard will be available at `http://<pi-ip>:5000`.
 
 ## Uninstall

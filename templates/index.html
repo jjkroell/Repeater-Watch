@@ -789,6 +789,11 @@
         </div>
         {% else %}
 
+        <div class="settings-notice">
+            <span class="settings-notice-icon">&#x1F512;</span>
+            <span>For internet-facing deployments: set a password, configure a trusted proxy, and use <strong>HTTPS</strong> via a reverse proxy such as a cloudflared tunnel.</span>
+        </div>
+
         <div class="settings-grid">
 
             <div class="tool-card settings-card">
@@ -906,7 +911,6 @@
                 </div>
             </div>
 
-            <p class="tool-desc" style="text-align:center; opacity:0.6; margin-top:8px;">Use HTTPS via a reverse proxy when exposing this dashboard to the internet.</p>
 
         </div><!-- /settings-grid -->
 
