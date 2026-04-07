@@ -41,7 +41,7 @@ header "Configuration"
 echo -e "  Before installing, we need a few details.\n"
 
 # --- Serial port (auto-detect) ---
-echo -e "  ${BOLD}Step 1/3 — Physical serial port${NC}\n"
+echo -e "  ${BOLD}Step 1/4 — Physical serial port${NC}\n"
 
 mapfile -t USB_DEVICES < <(ls /dev/serial/by-id/ 2>/dev/null || true)
 
@@ -77,7 +77,7 @@ fi
 echo ""
 
 # --- RepeaterWatch web port ---
-echo -e "  ${BOLD}Step 2/3 — Hardware name${NC}\n"
+echo -e "  ${BOLD}Step 2/4 — Hardware name${NC}\n"
 info "Name or description of this node's radio hardware."
 info "Examples: Heltec T114, RAK 4631, Ikoka Stick 30dB"
 echo ""
@@ -87,11 +87,27 @@ ok "Hardware: $HARDWARE_NAME"
 echo ""
 
 # --- RepeaterWatch web port ---
-echo -e "  ${BOLD}Step 3/3 — RepeaterWatch web port${NC}\n"
+echo -e "  ${BOLD}Step 3/4 — RepeaterWatch web port${NC}\n"
 info "Port the dashboard will listen on (default: 5000)."
 echo -en "${CYAN}?${NC}  Web port [5000]: "; read -r RW_PORT_RAW </dev/tty
 RW_PORT="${RW_PORT_RAW:-5000}"
 ok "Web port: $RW_PORT"
+echo ""
+
+# --- Trusted proxy ---
+echo -e "  ${BOLD}Step 4/4 — Trusted reverse proxy (optional)${NC}\n"
+info "If RepeaterWatch is behind a reverse proxy (e.g. cloudflared tunnel, nginx),"
+info "enter the proxy IP so real client IPs are correctly determined."
+info "For a cloudflared tunnel: enter ${BOLD}127.0.0.1${NC}"
+info "Leave blank if accessing directly with no reverse proxy."
+echo ""
+echo -en "${CYAN}?${NC}  Trusted proxy IP [leave blank for none]: "; read -r TRUSTED_PROXY </dev/tty
+if [[ -n "$TRUSTED_PROXY" ]]; then
+    ok "Trusted proxy: $TRUSTED_PROXY"
+else
+    TRUSTED_PROXY=""
+    ok "No trusted proxy configured."
+fi
 echo ""
 
 echo -e "  ${BOLD}Login password will be set interactively during the install.${NC}"
@@ -217,6 +233,14 @@ info "Installing Python dependencies..."
 sudo -u meshcoremon "$RW_DIR/venv/bin/pip" install -q -r "$RW_DIR/requirements.txt"
 ok "Python dependencies installed."
 
+# Symlink adafruit-nrfutil into /usr/local/bin for firmware flashing
+if [[ -f "$RW_DIR/venv/bin/adafruit-nrfutil" ]]; then
+    ln -sf "$RW_DIR/venv/bin/adafruit-nrfutil" /usr/local/bin/adafruit-nrfutil
+    ok "adafruit-nrfutil symlinked to /usr/local/bin."
+else
+    warn "adafruit-nrfutil not found in venv (may not be installed on this platform)."
+fi
+
 # Symlink lgpio from system packages into venv
 PYVER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
 LGPIO_PY=$(find /usr/lib/python3 -name "lgpio.py" ! -path "*/gpiozero/*" 2>/dev/null | head -1 || true)
@@ -257,6 +281,11 @@ MESHCORE_RETENTION_DAYS=30
 MESHCORE_HOST=0.0.0.0
 MESHCORE_PORT=$RW_PORT
 MESHCORE_DEBUG=0
+
+# Security
+MESHCORE_LOGIN_MAX_ATTEMPTS=5
+MESHCORE_LOGIN_LOCKOUT_SECS=300
+MESHCORE_TRUSTED_PROXIES=$TRUSTED_PROXY
 
 # Firmware flash
 MESHCORE_FLASH_SERIAL_PORT=$SERIAL_PORT

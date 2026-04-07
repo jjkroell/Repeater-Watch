@@ -72,6 +72,10 @@ fi
 rm -rf /tmp/meshcore-fw
 ok "Firmware upload temp dir removed."
 
+# Remove adafruit-nrfutil symlink
+rm -f /usr/local/bin/adafruit-nrfutil
+ok "adafruit-nrfutil symlink removed."
+
 if id meshcoremon &>/dev/null; then
     if yn "Remove service user 'meshcoremon'?" y; then
         userdel meshcoremon 2>/dev/null && ok "User 'meshcoremon' removed." || warn "Could not remove user 'meshcoremon' — remove manually with: sudo userdel meshcoremon"

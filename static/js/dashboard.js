@@ -379,10 +379,24 @@
         }
     }
 
+    // ── CSRF Token ───────────────────────────────────────
+    // Read once from the <meta> tag that Flask injects on page load.
+    var CSRF_TOKEN = (function () {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    })();
+
     // ── API Fetchers ─────────────────────────────────────
 
-    function fetchJSON(url) {
-        return fetch(url).then(function (r) {
+    function fetchJSON(url, opts) {
+        // If opts are provided (for POST/PUT/DELETE), inject the CSRF header
+        if (opts) {
+            opts.headers = opts.headers || {};
+            if (typeof opts.headers === 'object' && !opts.headers['X-CSRFToken']) {
+                opts.headers['X-CSRFToken'] = CSRF_TOKEN;
+            }
+        }
+        return fetch(url, opts).then(function (r) {
             if (r.status === 401) {
                 // On write operations from admin tab, redirect to login
                 // On read operations from public tabs, just fail silently
@@ -413,7 +427,7 @@
 
         fetchJSON('/api/v1/device').then(function (d) {
             document.getElementById('di-name').textContent = d.name || '--';
-            document.getElementById('di-hardware') && (document.getElementById('di-hardware').textContent = d.hardware || '--');
+            document.getElementById('di-hardware') && (document.getElementById('di-hardware').textContent = d.board || d.hardware || '--');
             (function(fw) {
                 document.getElementById('di-firmware').textContent = fw ? fw.replace(/^(\d+\.\d+\.\d+).*$/, '$1') : '--';
             })(d.firmware);
@@ -727,7 +741,7 @@
             document.getElementById('fw-modal-footer').style.display = 'none';
             showFwStatus('flashing', 'Uploading...');
 
-            fetch('/api/v1/firmware/flash', { method: 'POST', body: formData })
+            fetch('/api/v1/firmware/flash', { method: 'POST', body: formData, headers: { 'X-CSRFToken': CSRF_TOKEN } })
                 .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
                 .then(function (resp) {
                     if (!resp.ok) {
@@ -764,7 +778,7 @@
                 btn.disabled = true;
                 var origText = btn.textContent;
                 btn.textContent = label + 'ing...';
-                fetch('/api/v1/services/' + encodeURIComponent(name) + '/' + action, { method: 'POST' })
+                fetch('/api/v1/services/' + encodeURIComponent(name) + '/' + action, { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
                     .then(function (r) { return r.json(); })
                     .then(function () {
                         btn.textContent = label + 'ed';
@@ -789,7 +803,7 @@
             var btn = this;
             btn.disabled = true;
             btn.textContent = 'Rebooting...';
-            fetch('/api/v1/system/reboot', { method: 'POST' })
+            fetch('/api/v1/system/reboot', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
                 .then(function (r) { return r.json(); })
                 .catch(noop);
         });
@@ -801,7 +815,7 @@
             var btn = this;
             btn.disabled = true;
             btn.textContent = 'Resetting...';
-            fetch('/api/v1/radio/reset', { method: 'POST' })
+            fetch('/api/v1/radio/reset', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
                 .then(function (r) { return r.json(); })
                 .then(function () {
                     btn.textContent = 'Reset sent';
@@ -818,7 +832,7 @@
             var btn = this;
             btn.disabled = true;
             btn.textContent = 'Entering bootloader...';
-            fetch('/api/v1/radio/bootloader', { method: 'POST' })
+            fetch('/api/v1/radio/bootloader', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
                 .then(function (r) { return r.json(); })
                 .then(function () {
                     btn.textContent = 'Bootloader active';
@@ -875,7 +889,7 @@
 
             fetch('/api/v1/radio/usb', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
                 body: JSON.stringify({ enabled: newState }),
             })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -918,7 +932,7 @@
 
             fetch('/api/v1/bq24074/charging', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
                 body: JSON.stringify({ enabled: newState }),
             })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -1206,7 +1220,7 @@
 
             fetch('/api/v1/settings', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
                 body: JSON.stringify(body),
             })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -1247,7 +1261,7 @@
 
             fetch('/api/v1/settings', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
                 body: JSON.stringify(body),
             })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
@@ -1281,7 +1295,7 @@
             dbStatusEl.textContent = 'Deleting...';
             dbStatusEl.className = 'settings-save-status';
 
-            fetch('/api/v1/database/reset', { method: 'POST' })
+            fetch('/api/v1/database/reset', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (resp) {
                 dbResetBtn.disabled = false;
@@ -1313,7 +1327,7 @@
             nbDeleteBtn.disabled = true;
             nbStatusEl.textContent = 'Deleting...';
             nbStatusEl.className = 'settings-save-status';
-            fetch('/api/v1/neighbors/delete', { method: 'POST' })
+            fetch('/api/v1/neighbors/delete', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (resp) {
                 nbDeleteBtn.disabled = false;
@@ -1333,6 +1347,169 @@
                 setTimeout(function () { nbStatusEl.textContent = ''; }, 3000);
             });
         });
+
+
+    }
+
+    function setupAuthCard() {
+    // ── Authentication management ────────────────────────
+    var authStatusEl = document.getElementById('auth-current-status');
+    var authSetBtn = document.getElementById('auth-set-btn');
+    var authClearBtn = document.getElementById('auth-clear-btn');
+    var authNewPw = document.getElementById('auth-new-pw');
+    var authConfirmPw = document.getElementById('auth-confirm-pw');
+    var authMsg = document.getElementById('auth-status-msg');
+
+    // Fetch current auth status and populate fields
+    fetchJSON('/api/v1/auth/status').then(function (d) {
+        if (d.auth_enabled) {
+            authStatusEl.textContent = 'Enabled (' + d.method + ')';
+            authStatusEl.style.color = 'var(--green)';
+        } else {
+            authStatusEl.textContent = 'Disabled — dashboard is public';
+            authStatusEl.style.color = 'var(--yellow)';
+            authClearBtn.style.display = 'none';
+        }
+        var maxEl = document.getElementById('auth-max-attempts');
+        var lockEl = document.getElementById('auth-lockout-secs');
+        var proxyEl = document.getElementById('auth-trusted-proxies');
+        if (maxEl) maxEl.value = d.max_attempts || 5;
+        if (lockEl) lockEl.value = d.lockout_secs || 300;
+        if (proxyEl) proxyEl.value = d.trusted_proxies || '';
+    }).catch(function () {
+        authStatusEl.textContent = 'Unknown';
+    });
+
+    authSetBtn.addEventListener('click', function () {
+        var pw = authNewPw.value;
+        var confirm = authConfirmPw.value;
+        if (pw.length < 8) {
+            authMsg.textContent = 'Password must be at least 8 characters';
+            authMsg.className = 'settings-save-status error';
+            setTimeout(function () { authMsg.textContent = ''; }, 3000);
+            return;
+        }
+        if (pw !== confirm) {
+            authMsg.textContent = 'Passwords do not match';
+            authMsg.className = 'settings-save-status error';
+            setTimeout(function () { authMsg.textContent = ''; }, 3000);
+            return;
+        }
+        authSetBtn.disabled = true;
+        authMsg.textContent = 'Setting password...';
+        authMsg.className = 'settings-save-status';
+
+        fetch('/api/v1/auth/password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ password: pw }),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (resp) {
+            authSetBtn.disabled = false;
+            authNewPw.value = '';
+            authConfirmPw.value = '';
+            if (resp.ok) {
+                authMsg.textContent = 'Restarting Services and Reloading...';
+                authMsg.className = 'settings-save-status success';
+                setTimeout(function () { location.reload(); }, 6000);
+            } else {
+                authMsg.textContent = resp.data.error || 'Failed';
+                authMsg.className = 'settings-save-status error';
+            }
+            setTimeout(function () { authMsg.textContent = ''; }, 5000);
+        })
+        .catch(function () {
+            authSetBtn.disabled = false;
+            authMsg.textContent = 'Network error';
+            authMsg.className = 'settings-save-status error';
+            setTimeout(function () { authMsg.textContent = ''; }, 3000);
+        });
+    });
+
+    authClearBtn.addEventListener('click', function () {
+        if (!confirm('Disable authentication? The dashboard will be fully public.')) return;
+        authClearBtn.disabled = true;
+        authMsg.textContent = 'Disabling auth...';
+        authMsg.className = 'settings-save-status';
+
+        fetch('/api/v1/auth/clear', { method: 'POST', headers: { 'X-CSRFToken': CSRF_TOKEN } })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (resp) {
+            authClearBtn.disabled = false;
+            if (resp.ok) {
+                authMsg.textContent = 'Restarting Services and Reloading...';
+                authMsg.className = 'settings-save-status success';
+                setTimeout(function () { location.reload(); }, 6000);
+            } else {
+                authMsg.textContent = resp.data.error || 'Failed';
+                authMsg.className = 'settings-save-status error';
+            }
+            setTimeout(function () { authMsg.textContent = ''; }, 5000);
+        })
+        .catch(function () {
+            authClearBtn.disabled = false;
+            authMsg.textContent = 'Network error';
+            authMsg.className = 'settings-save-status error';
+            setTimeout(function () { authMsg.textContent = ''; }, 3000);
+        });
+    });
+
+    // ── Login protection settings ────────────────────────
+    var authSettingsSaveBtn = document.getElementById('auth-settings-save-btn');
+    var authSettingsStatus = document.getElementById('auth-settings-status');
+
+    if (authSettingsSaveBtn) {
+        authSettingsSaveBtn.addEventListener('click', function () {
+            var body = {
+                max_attempts: parseInt(document.getElementById('auth-max-attempts').value, 10),
+                lockout_secs: parseInt(document.getElementById('auth-lockout-secs').value, 10),
+                trusted_proxies: document.getElementById('auth-trusted-proxies').value.trim(),
+            };
+            if (!body.max_attempts || body.max_attempts < 1) {
+                authSettingsStatus.textContent = 'Max attempts must be at least 1';
+                authSettingsStatus.className = 'settings-save-status error';
+                setTimeout(function () { authSettingsStatus.textContent = ''; }, 3000);
+                return;
+            }
+            if (!body.lockout_secs || body.lockout_secs < 30) {
+                authSettingsStatus.textContent = 'Lockout must be at least 30 seconds';
+                authSettingsStatus.className = 'settings-save-status error';
+                setTimeout(function () { authSettingsStatus.textContent = ''; }, 3000);
+                return;
+            }
+            authSettingsSaveBtn.disabled = true;
+            authSettingsStatus.textContent = 'Saving...';
+            authSettingsStatus.className = 'settings-save-status';
+
+            fetch('/api/v1/auth/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+                body: JSON.stringify(body),
+            })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (resp) {
+                authSettingsSaveBtn.disabled = false;
+                if (resp.ok) {
+                    authSettingsStatus.textContent = resp.data.restarting ? 'Saved — service restarting...' : 'Saved';
+                    authSettingsStatus.className = 'settings-save-status success';
+                    if (resp.data.restarting) {
+                        setTimeout(function () { authSettingsStatus.textContent = 'Service restarted'; }, 4000);
+                    }
+                } else {
+                    authSettingsStatus.textContent = resp.data.error || 'Save failed';
+                    authSettingsStatus.className = 'settings-save-status error';
+                }
+                setTimeout(function () { authSettingsStatus.textContent = ''; }, 5000);
+            })
+            .catch(function () {
+                authSettingsSaveBtn.disabled = false;
+                authSettingsStatus.textContent = 'Network error';
+                authSettingsStatus.className = 'settings-save-status error';
+                setTimeout(function () { authSettingsStatus.textContent = ''; }, 3000);
+            });
+        });
+    }
     }
 
     function populateSettingsForm(settings) {
@@ -1407,6 +1584,8 @@
     if (document.getElementById('bq24074-toggle-btn')) setupBq24074Tool();
     if (document.getElementById('terminal-connect-btn')) setupTerminal();
     if (document.getElementById('settings-save-btn')) setupSettings();
+    if (document.getElementById('auth-set-btn'))     setupAuthCard();
+    setupLoginModal();
 
     loadSettings().then(function () {
         refreshAll();
@@ -1415,4 +1594,77 @@
     refreshTimer = setInterval(refreshAll, REFRESH_INTERVAL);
 
     document.body.classList.add('ready');
+    function setupLoginModal() {
+        var overlay  = document.getElementById('login-modal-overlay');
+        var pwInput  = document.getElementById('login-modal-pw');
+        var submitBtn = document.getElementById('login-modal-submit');
+        var errorEl  = document.getElementById('login-modal-error');
+
+        if (!overlay) return;
+
+        document.querySelectorAll('.login-modal-trigger').forEach(function (el) {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+                errorEl.style.display = 'none';
+                errorEl.textContent = '';
+                pwInput.value = '';
+                overlay.style.display = 'flex';
+                setTimeout(function () { pwInput.focus(); }, 50);
+            });
+        });
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) overlay.style.display = 'none';
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && overlay.style.display !== 'none') {
+                overlay.style.display = 'none';
+            }
+        });
+
+        submitBtn.addEventListener('click', doLogin);
+        pwInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') doLogin();
+        });
+
+        function doLogin() {
+            var pw = pwInput.value;
+            if (!pw) return;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Logging in...';
+            errorEl.style.display = 'none';
+
+            var formData = new FormData();
+            formData.append('password', pw);
+            formData.append('csrf_token', CSRF_TOKEN);
+
+            fetch('/login', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData,
+            })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (resp) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Log In';
+                if (resp.data.ok) {
+                    location.reload();
+                } else {
+                    errorEl.textContent = resp.data.error || 'Invalid password';
+                    errorEl.style.display = 'block';
+                    pwInput.value = '';
+                    pwInput.focus();
+                }
+            })
+            .catch(function () {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Log In';
+                errorEl.textContent = 'Network error';
+                errorEl.style.display = 'block';
+            });
+        }
+    }
+
+
 })();

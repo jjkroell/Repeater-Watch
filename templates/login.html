@@ -70,6 +70,13 @@
             margin-bottom: 14px;
         }
     </style>
+    <script>
+        (function() {
+            var t = localStorage.getItem('repeaterwatch-theme') ||
+                    (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
 </head>
 <body>
     <div class="login-wrapper">
@@ -79,7 +86,8 @@
             {% if error %}
             <p class="login-error">{{ error }}</p>
             {% endif %}
-                        <form method="POST" action="/login">
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="password" name="password" placeholder="Password" autofocus required />
                 <button type="submit">Log In</button>
             </form>
