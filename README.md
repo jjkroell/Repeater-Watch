@@ -61,9 +61,10 @@ No account or password needed. Just pick a unique topic name and set it in `.env
 
 ```
 MESHCORE_NTFY_URL=https://ntfy.sh/<your-topic-here>
+MESHCORE_NTFY_OFFLINE_THRESHOLD=3
 ```
 
-Subscribe to the same topic in the ntfy app on your phone. Leave `MESHCORE_NTFY_USER` and `MESHCORE_NTFY_PASSWORD` blank.
+Subscribe to the same topic in the ntfy app on your phone. For public server leave `MESHCORE_NTFY_USER` and `MESHCORE_NTFY_PASSWORD` blank.
 
 ### Using a self-hosted ntfy server
 
@@ -101,6 +102,7 @@ Then set in `/opt/RepeaterWatch/.env`:
 MESHCORE_NTFY_URL=http://localhost:8080/<your-topic-here>
 MESHCORE_NTFY_USER=<your-username>
 MESHCORE_NTFY_PASSWORD=<your-password>
+MESHCORE_NTFY_OFFLINE_THRESHOLD=3
 ```
 
 ### RepeaterWatch configuration (`/opt/RepeaterWatch/.env`)
