@@ -66,6 +66,8 @@ def register_terminal_routes(sock):
                 pass
             reader_thread.join(timeout=2)
 
+    SESSION_TIMEOUT = 90  # seconds: auto-resume poller if no heartbeat
+
     @sock.route("/ws/terminal/serial")
     def terminal_serial(ws):
         poller = current_app.config.get("poller")
@@ -84,6 +86,7 @@ def register_terminal_routes(sock):
             return
 
         stop = threading.Event()
+        last_activity = [time.time()]
 
         def reader():
             try:
@@ -97,8 +100,24 @@ def register_terminal_routes(sock):
             except Exception:
                 pass
 
+        def watchdog():
+            while not stop.is_set():
+                time.sleep(10)
+                if stop.is_set():
+                    break
+                if time.time() - last_activity[0] > SESSION_TIMEOUT:
+                    logger.info("Terminal serial session timed out after %ds inactivity", SESSION_TIMEOUT)
+                    stop.set()
+                    try:
+                        ws.close()
+                    except Exception:
+                        pass
+                    break
+
         reader_thread = threading.Thread(target=reader, daemon=True)
+        watchdog_thread = threading.Thread(target=watchdog, daemon=True)
         reader_thread.start()
+        watchdog_thread.start()
 
         try:
             while True:
@@ -107,7 +126,14 @@ def register_terminal_routes(sock):
                     break
                 if isinstance(data, str):
                     data = data.encode()
-                ser.write(data)
+                # Strip heartbeat null bytes before writing to serial
+                data = data.replace(b'\x00', b'')
+                if data:
+                    last_activity[0] = time.time()
+                    ser.write(data)
+                else:
+                    # Heartbeat only — update activity timestamp
+                    last_activity[0] = time.time()
         except Exception:
             pass
         finally:

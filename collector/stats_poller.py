@@ -45,6 +45,7 @@ class StatsPoller:
             "poll_count": self._poll_count,
             "error_count": self._error_count,
             "running": self._thread is not None and self._thread.is_alive(),
+            "paused": self._paused.is_set(),
         }
 
     def start(self):

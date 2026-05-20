@@ -419,6 +419,17 @@
             document.getElementById('footer-errors').textContent = d.error_count || 0;
             document.getElementById('footer-db-size').textContent = formatBytes(d.db_size_bytes);
             document.getElementById('footer-polls').textContent = d.poll_count || 0;
+            var lastPollEl = document.getElementById('footer-last-poll');
+            if (lastPollEl) {
+                if (d.paused) {
+                    lastPollEl.textContent = 'paused';
+                } else if (d.last_poll) {
+                    var ago = Math.round(Date.now() / 1000 - d.last_poll);
+                    lastPollEl.textContent = ago + 's ago';
+                } else {
+                    lastPollEl.textContent = '--';
+                }
+            }
         }).catch(noop);
     }
 
@@ -995,6 +1006,19 @@
                 if (startBtn) startBtn.style.display = svc.active ? 'none' : '';
                 if (stopBtn) stopBtn.style.display = svc.active ? '' : 'none';
                 if (restartBtn) restartBtn.style.display = svc.active ? '' : 'none';
+                if (svc.name === 'mctomqtt') {
+                    var mqttEl = document.getElementById('svc-mctomqtt-mqtt');
+                    if (mqttEl) {
+                        if (svc.mqtt_status) {
+                            mqttEl.textContent = 'MQTT: ' + svc.mqtt_status.brokers;
+                            mqttEl.title = svc.mqtt_status.reconnects
+                                ? 'Reconnects/24h: ' + svc.mqtt_status.reconnects : '';
+                        } else {
+                            mqttEl.textContent = '';
+                            mqttEl.title = '';
+                        }
+                    }
+                }
             });
         }).catch(function (e) { console.warn('Services fetch failed:', e); });
     }
@@ -1055,6 +1079,10 @@
     var terminalFitAddon = null;
     var terminalMode = 'pty';
     var terminalConnected = false;
+    var terminalHeartbeat = null;
+    var cmdHistory = [];
+    var cmdHistoryPos = -1;
+    var cmdBuffer = '';
 
     function setupTerminal() {
         var modeBtns = document.querySelectorAll('.terminal-mode-btn');
@@ -1128,6 +1156,15 @@
             statusEl.className = 'terminal-status connected';
             modeBtns.forEach(function (b) { b.disabled = true; });
             terminalInstance.focus();
+            if (terminalMode === 'serial') {
+                cmdBuffer = '';
+                cmdHistoryPos = -1;
+                terminalHeartbeat = setInterval(function () {
+                    if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+                        terminalWs.send('\x00');
+                    }
+                }, 30000);
+            }
         };
 
         terminalWs.onmessage = function (ev) {
@@ -1145,6 +1182,10 @@
             statusEl.textContent = 'Disconnected';
             statusEl.className = 'terminal-status';
             modeBtns.forEach(function (b) { b.disabled = false; });
+            if (terminalHeartbeat) {
+                clearInterval(terminalHeartbeat);
+                terminalHeartbeat = null;
+            }
         };
 
         terminalWs.onerror = function () {
@@ -1153,9 +1194,54 @@
         };
 
         terminalInstance.onData(function (data) {
-            if (terminalWs && terminalWs.readyState === WebSocket.OPEN) {
+            if (!terminalWs || terminalWs.readyState !== WebSocket.OPEN) return;
+            if (terminalMode !== 'serial') {
                 terminalWs.send(data);
+                return;
             }
+            // Serial mode: command history navigation
+            if (data === '\x1b[A') {  // Up arrow
+                if (cmdHistory.length > 0 && cmdHistoryPos < cmdHistory.length - 1) {
+                    var newPos = cmdHistoryPos + 1;
+                    var newCmd = cmdHistory[cmdHistory.length - 1 - newPos];
+                    var bs = '\x7f'.repeat(cmdBuffer.length);
+                    if (bs) terminalWs.send(bs);
+                    if (newCmd) terminalWs.send(newCmd);
+                    cmdBuffer = newCmd;
+                    cmdHistoryPos = newPos;
+                }
+                return;
+            }
+            if (data === '\x1b[B') {  // Down arrow
+                if (cmdHistoryPos > 0) {
+                    var newPos2 = cmdHistoryPos - 1;
+                    var newCmd2 = cmdHistory[cmdHistory.length - 1 - newPos2];
+                    var bs2 = '\x7f'.repeat(cmdBuffer.length);
+                    if (bs2) terminalWs.send(bs2);
+                    if (newCmd2) terminalWs.send(newCmd2);
+                    cmdBuffer = newCmd2;
+                    cmdHistoryPos = newPos2;
+                } else if (cmdHistoryPos === 0) {
+                    var bs3 = '\x7f'.repeat(cmdBuffer.length);
+                    if (bs3) terminalWs.send(bs3);
+                    cmdBuffer = '';
+                    cmdHistoryPos = -1;
+                }
+                return;
+            }
+            if (data === '\r') {  // Enter
+                if (cmdBuffer.trim()) {
+                    cmdHistory.push(cmdBuffer);
+                    if (cmdHistory.length > 50) cmdHistory.shift();
+                }
+                cmdHistoryPos = -1;
+                cmdBuffer = '';
+            } else if (data === '\x7f' || data === '\x08') {  // Backspace
+                if (cmdBuffer.length > 0) cmdBuffer = cmdBuffer.slice(0, -1);
+            } else if (!data.startsWith('\x1b')) {  // Printable characters
+                cmdBuffer += data;
+            }
+            terminalWs.send(data);
         });
     }
 

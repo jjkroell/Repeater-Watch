@@ -2,6 +2,7 @@ import bcrypt
 import logging
 import os
 import platform
+import re
 import subprocess
 import threading
 import time
@@ -461,6 +462,21 @@ def firmware_status():
 
 # ── Service Management ───────────────────────────────────
 
+def _get_mctomqtt_mqtt_status():
+    try:
+        result = subprocess.run(
+            ["journalctl", "-u", "mctomqtt", "-n", "200", "--no-pager", "-o", "cat"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in reversed(result.stdout.splitlines()):
+            m = re.search(r'MQTT:\s*(\d+/\d+)(?:\s*\|\s*Reconnects/24h:\s*(.+))?', line)
+            if m:
+                return {"brokers": m.group(1), "reconnects": (m.group(2) or "").strip()}
+    except Exception:
+        pass
+    return None
+
+
 def _get_service_info(name):
     try:
         result = subprocess.run(
@@ -489,7 +505,11 @@ def _get_service_info(name):
 
 @api.route("/services")
 def list_services():
-    return jsonify([_get_service_info(s) for s in MANAGED_SERVICES])
+    services = [_get_service_info(s) for s in MANAGED_SERVICES]
+    for svc in services:
+        if svc["name"] == "mctomqtt":
+            svc["mqtt_status"] = _get_mctomqtt_mqtt_status()
+    return jsonify(services)
 
 
 @api.route("/services/<name>/start", methods=["POST"])

@@ -876,8 +876,16 @@ td.dir-rx { color: var(--green); }
     color: var(--text-muted);
     font-family: var(--font-mono);
     margin-left: auto;
+    white-space: nowrap;
+}
+
+.service-mqtt-status {
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
     margin-right: 8px;
     white-space: nowrap;
+    opacity: 0.85;
 }
 
 .service-btns {
