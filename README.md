@@ -2,7 +2,7 @@
 
 A real-time web dashboard for monitoring a [MeshCore](https://meshcore.co.uk) LoRa repeater node running on a Raspberry Pi. Polls the node over serial, stores history in SQLite, and presents live data through a Flask/WebSocket interface.
 
-**Full stack:** SerialMux → mctomqtt → RepeaterWatch  (fully installed via one line install below)  
+**Full stack:** SerialMux → mctomqtt → RepeaterWatch — **fully installed via the one-line installer below**
 
 ---
 
