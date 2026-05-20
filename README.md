@@ -95,7 +95,7 @@ sudo systemctl daemon-reload && sudo systemctl enable --now ntfy
 sudo ntfy user add --role=admin <your-username>
 ```
 
-Then set in `.env`:
+Then set in `/opt/RepeaterWatch/.env`:
 
 ```
 MESHCORE_NTFY_URL=http://localhost:8080/<your-topic-here>
