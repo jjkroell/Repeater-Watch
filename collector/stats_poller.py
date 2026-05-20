@@ -19,6 +19,7 @@ from database.schema import init_db
 from collector.packet_parser import parse_info_line, decode_advert
 from collector.serial_reader import SerialReader
 from collector.startup import collect_device_info, refresh_radio_config
+from collector.notifier import send_notification
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ class StatsPoller:
         self._poll_count: int = 0
         self._error_count: int = 0
         self._paused = threading.Event()
+        self._consecutive_failures: int = 0
+        self._offline_notified: bool = False
 
     @property
     def status(self) -> dict:
@@ -79,9 +82,36 @@ class StatsPoller:
                     self._poll_serial(ts)
                     self._last_poll = time.time()
                     self._poll_count += 1
+                    if self._offline_notified:
+                        self._consecutive_failures = 0
+                        self._offline_notified = False
+                        send_notification(
+                            "Node Recovered",
+                            f"{config.SERIAL_PORT} is back online.",
+                            priority="default",
+                        )
+                    else:
+                        self._consecutive_failures = 0
                 except Exception:
                     logger.exception("Error during poll cycle")
                     self._error_count += 1
+                    self._consecutive_failures += 1
+                    if self._consecutive_failures >= config.NTFY_OFFLINE_THRESHOLD and not self._offline_notified:
+                        self._offline_notified = True
+                        send_notification(
+                            "Node Offline",
+                            f"{config.SERIAL_PORT} has not responded for {self._consecutive_failures} poll cycles.",
+                            priority="high",
+                        )
+            elif not self.reader.connected and not self._paused.is_set():
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= config.NTFY_OFFLINE_THRESHOLD and not self._offline_notified:
+                    self._offline_notified = True
+                    send_notification(
+                        "Node Offline",
+                        f"{config.SERIAL_PORT} is not reachable.",
+                        priority="high",
+                    )
 
             # Purge old data once per cycle
             try:

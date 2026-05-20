@@ -41,7 +41,7 @@ header "Configuration"
 echo -e "  Before installing, we need a few details.\n"
 
 # --- Serial port (auto-detect) ---
-echo -e "  ${BOLD}Step 1/4 — Physical serial port${NC}\n"
+echo -e "  ${BOLD}Step 1/5 — Physical serial port${NC}\n"
 
 mapfile -t USB_DEVICES < <(ls /dev/serial/by-id/ 2>/dev/null || true)
 
@@ -77,7 +77,7 @@ fi
 echo ""
 
 # --- RepeaterWatch web port ---
-echo -e "  ${BOLD}Step 2/4 — Hardware name${NC}\n"
+echo -e "  ${BOLD}Step 2/5 — Hardware name${NC}\n"
 info "Name or description of this node's radio hardware."
 info "Examples: Heltec T114, RAK 4631, Ikoka Stick 30dB"
 echo ""
@@ -87,7 +87,7 @@ ok "Hardware: $HARDWARE_NAME"
 echo ""
 
 # --- RepeaterWatch web port ---
-echo -e "  ${BOLD}Step 3/4 — RepeaterWatch web port${NC}\n"
+echo -e "  ${BOLD}Step 3/5 — RepeaterWatch web port${NC}\n"
 info "Port the dashboard will listen on (default: 5000)."
 echo -en "${CYAN}?${NC}  Web port [5000]: "; read -r RW_PORT_RAW </dev/tty
 RW_PORT="${RW_PORT_RAW:-5000}"
@@ -95,7 +95,7 @@ ok "Web port: $RW_PORT"
 echo ""
 
 # --- Trusted proxy ---
-echo -e "  ${BOLD}Step 4/4 — Trusted reverse proxy (optional)${NC}\n"
+echo -e "  ${BOLD}Step 4/5 — Trusted reverse proxy (optional)${NC}\n"
 info "If RepeaterWatch is behind a reverse proxy (e.g. cloudflared tunnel, nginx),"
 info "enter the proxy IP so real client IPs are correctly determined."
 info "For a cloudflared tunnel: enter ${BOLD}127.0.0.1${NC}"
@@ -110,20 +110,36 @@ else
 fi
 echo ""
 
+# --- ntfy.sh notifications ---
+echo -e "  ${BOLD}Step 5/5 — Notifications via ntfy.sh (optional)${NC}\n"
+info "Get a push notification when your node goes offline or recovers."
+info "Install the ntfy app, subscribe to a topic, then paste the full URL here."
+info "Example: https://ntfy.sh/my-repeater-alerts-abc123"
+info "Leave blank to skip."
+echo ""
+echo -en "${CYAN}?${NC}  ntfy topic URL [leave blank to skip]: "; read -r NTFY_URL </dev/tty
+if [[ -n "$NTFY_URL" ]]; then
+    ok "ntfy URL: $NTFY_URL"
+else
+    NTFY_URL=""
+    ok "Notifications disabled."
+fi
+echo ""
+
 echo -e "  ${BOLD}Login password will be set interactively during the install.${NC}"
 echo -e "  ${BOLD}mctomqtt will ask for your IATA code and LetsMesh credentials.${NC}\n"
 echo -e "${YELLOW}  Starting installation in 3 seconds...${NC}"
 sleep 3
 
 # ── Step 1: System dependencies ──────────────────────────────────────────────
-header "Step 1/4 — System Dependencies"
+header "Step 1/5 — System Dependencies"
 
 apt-get update -qq
 apt-get install -y -qq git python3 python3-venv python3-pip python3-lgpio python3-serial curl
 ok "System packages installed."
 
 # ── Step 2: SerialMux ────────────────────────────────────────────────────────
-header "Step 2/4 — SerialMux"
+header "Step 2/5 — SerialMux"
 
 SERIALMUX_DIR="/opt/SerialMux"
 
@@ -168,7 +184,7 @@ else
 fi
 
 # ── Step 3: mctomqtt ─────────────────────────────────────────────────────────
-header "Step 3/4 — mctomqtt"
+header "Step 3/5 — mctomqtt"
 info "The mctomqtt installer will now run and ask for your IATA code and LetsMesh credentials."
 echo ""
 
@@ -202,7 +218,7 @@ systemctl restart mctomqtt
 ok "mctomqtt restarted."
 
 # ── Step 4: RepeaterWatch ────────────────────────────────────────────────────
-header "Step 4/4 — RepeaterWatch"
+header "Step 4/5 — RepeaterWatch"
 
 RW_DIR="/opt/RepeaterWatch"
 
@@ -303,6 +319,10 @@ MESHCORE_SENSOR_LIS2DW12=0
 MESHCORE_SENSOR_AS3935=0
 MESHCORE_SENSOR_BQ24074=0
 MESHCORE_HARDWARE=$HARDWARE_NAME
+
+# Notifications (ntfy.sh — leave blank to disable)
+MESHCORE_NTFY_URL=$NTFY_URL
+MESHCORE_NTFY_OFFLINE_THRESHOLD=3
 EOF
     chown meshcoremon:meshcoremon "$RW_DIR/.env"
     chmod 640 "$RW_DIR/.env"

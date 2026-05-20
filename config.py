@@ -54,3 +54,7 @@ AS3935_MASK_DISTURBER = os.environ.get("MESHCORE_AS3935_MASK_DIST", "1") == "1" 
 BQ24074_CHG_GPIO = int(os.environ.get("MESHCORE_BQ24074_CHG_GPIO", "19"))
 BQ24074_PGOOD_GPIO = int(os.environ.get("MESHCORE_BQ24074_PGOOD_GPIO", "13"))
 BQ24074_CE_GPIO = int(os.environ.get("MESHCORE_BQ24074_CE_GPIO", "6"))
+
+# Notifications (ntfy.sh)
+NTFY_URL = os.environ.get("MESHCORE_NTFY_URL", "")
+NTFY_OFFLINE_THRESHOLD = int(os.environ.get("MESHCORE_NTFY_OFFLINE_THRESHOLD", "3"))
