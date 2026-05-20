@@ -18,7 +18,7 @@ from database.retention import purge_old_data
 from database.schema import init_db
 from collector.packet_parser import parse_info_line, decode_advert
 from collector.serial_reader import SerialReader
-from collector.startup import collect_device_info
+from collector.startup import collect_device_info, refresh_radio_config
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +149,9 @@ class StatsPoller:
                 direct_rx=data.get("direct_rx"),
                 flood_rx=data.get("flood_rx"),
             )
+
+        # Refresh radio config so frequency changes are picked up without restart
+        refresh_radio_config(self.reader)
 
         # stats-extpower (only when using INA3221 power source)
         if models.get_setting("power_source", "ina3221") != "ina3221":

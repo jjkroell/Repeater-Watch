@@ -19,6 +19,17 @@ STARTUP_COMMANDS = [
 ERROR_RESPONSES = {"unknown command", "error", "invalid"}
 
 
+def refresh_radio_config(reader):
+    resp = reader.send_command("get radio")
+    if resp:
+        value = resp.strip().split("\n", 1)[0].strip()
+        if value.startswith("> "):
+            value = value[2:]
+        if value.lower() not in ERROR_RESPONSES:
+            models.set_device_info("radio_config", value)
+            logger.info("Radio config refreshed: %s", value)
+
+
 def collect_device_info(reader):
     for cmd, key in STARTUP_COMMANDS:
         resp = reader.send_command(cmd)
